@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NP Answer</title>
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--text:#1b1d29;--muted:#6b7084;--accent:#5b4bdb;--accent-t:#fff;--user:#e9e6ff;--border:#e3e5ee;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#14151c;--card:#1e2029;--text:#eceef7;--muted:#9aa0b8;--accent:#8b7dff;--accent-t:#14151c;--user:#2b2858;--border:#2d3040;color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Devanagari",sans-serif;display:flex;flex-direction:column;max-width:720px;margin:0 auto}
+header{padding:14px 16px 8px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+h1{font-size:22px;margin:0}
+h1 span{color:var(--accent)}
+.sub{font-size:12px;color:var(--muted)}
+.tools{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
+.tools label{display:flex;align-items:center;gap:5px;cursor:pointer}
+.gear{background:none;border:0;font-size:18px;cursor:pointer;color:var(--text)}
+#setup{display:none;margin:6px 14px;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--card);font-size:13px;line-height:1.5}
+#setup input{width:100%;margin:8px 0;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px}
+#setup button{padding:8px 14px;border:0;border-radius:10px;background:var(--accent);color:var(--accent-t);cursor:pointer;font-size:14px}
+#chat{flex:1;overflow-y:auto;padding:8px 14px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:88%;padding:10px 13px;border-radius:16px;line-height:1.5;font-size:15px;white-space:pre-wrap;word-wrap:break-word;border:1px solid var(--border)}
+.u{align-self:flex-end;background:var(--user)}
+.a{align-self:flex-start;background:var(--card)}
+.a button{display:block;margin-top:6px;background:none;border:0;color:var(--accent);font-size:13px;cursor:pointer;padding:2px 0}
+.empty{margin:auto;text-align:center;color:var(--muted);font-size:14px;padding:20px}
+.bar{display:flex;gap:8px;padding:10px 12px 12px;align-items:center}
+#q{flex:1;min-width:0;padding:12px 14px;border-radius:24px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:15px;outline:none}
+#q:focus{border-color:var(--accent)}
+.btn{width:46px;height:46px;border-radius:50%;border:0;background:var(--accent);color:var(--accent-t);font-size:19px;cursor:pointer;flex:none}
+.btn.on{background:#e5484d;color:#fff}
+.btn:disabled{opacity:.5}
+#status{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>NP <span>Answer</span></h1><div class="sub">Kuch bhi poochho — likhkar ya bolkar</div></div>
+  <div class="tools"><label><input type="checkbox" id="auto"> Bolkar jawab</label><button class="gear" id="gear" title="API key">⚙️</button></div>
+</header>
+<div id="setup">
+  <b>API key chahiye (ek baar):</b> apni Anthropic API key daalo (console.anthropic.com se milti hai). Key sirf aapke is browser me save hoti hai, kahin bheji nahi jaati.
+  <input id="key" type="password" placeholder="sk-ant-..." autocomplete="off">
+  <button id="save">Save</button>
+</div>
+<div id="chat"></div>
+<div id="status"></div>
+<div class="bar">
+  <button class="btn" id="mic" title="Bolkar poochho">🎤</button>
+  <button class="btn" id="cam" title="Photo bhejo">📷</button><input type="file" id="file" accept="image/*" hidden>
+  <input id="q" type="text" placeholder="Apna sawal likhein…" autocomplete="off">
+  <button class="btn" id="send" title="Bhejo">➤</button>
+</div>
+<script>
+(function(){
+var MODEL='claude-haiku-5-5'; // chahe to 'claude-sonnet-5-5' kar do
+var SYS='Tum "NP Answer" ho, ek dost jaisa helpful assistant. User jis bhasha me poochhe (Hindi, Hinglish ya English) usi me jawab do. Hindi sawal ka jawab Devanagari me do. Jawab chhota, saaf aur sahi rakho (zyadatar 2-5 vakya). Sirf plain text — koi markdown, star, bullet symbol ya emoji nahi, kyunki jawab bolkar sunaya jaayega. Agar kuch pata na ho to imandari se batao. Agar user photo bheje (kitab ya copy ka sawal), to photo me likha sawal padho, agar koi galti ho to batao, aur simple step-by-step hal samjhao (zarurat ho to 8-10 vakya tak). Maths ko plain text me likho (jaise 3/4, x^2), LaTeX nahi. Agar koi poochhe ki tumhe kisne banaya / who made you / creator kaun hai, to garv se batao: NP Answer ko Naitik Pandey ne banaya hai. Naitik Pandey BCA (Bachelor of Computer Application) pehle saal ka student hai, Karma Devi Smriti Mahavidalay me padhta hai (session 2026/27). Wo C++ seekh raha hai aur kai websites bana chuka hai, jaise fee management website aur नैतिक म्यूजिक website. Uska YouTube channel bhi hai: नैतिक म्यूजिक. Isse zyada kuch invent mat karo aur phone ya email jaisi private jaankari mat do.';
+var $=function(i){return document.getElementById(i)};
+var chat=$('chat'),q=$('q'),send=$('send'),mic=$('mic'),st=$('status'),auto=$('auto'),setup=$('setup'),keyIn=$('key');
+var hist=[],busy=false,rec=null;
+function getKey(){try{return localStorage.getItem('np_key')||''}catch(e){return ''}}
+function setStatus(t){st.textContent=t||''}
+
+function empty(){
+  chat.innerHTML='<div class="empty"><div style="font-size:42px">🤖</div><div>Namaste! Main <b>NP Answer</b> hoon.<br>🎤 dabakar bolo — main bolkar jawab dunga.</div></div>';
+}
+empty();
+function add(cls,t){
+  var e=chat.querySelector('.empty');if(e)chat.innerHTML='';
+  var m=document.createElement('div');m.className='msg '+cls;m.textContent=t;
+  chat.appendChild(m);chat.scrollTop=chat.scrollHeight;return m;
+}
+function showSetup(){setup.style.display='block';keyIn.focus()}
+if(!getKey())showSetup();
+$('gear').onclick=function(){setup.style.display=setup.style.display==='block'?'none':'block'};
+$('save').onclick=function(){
+  var k=keyIn.value.trim();if(!k)return;
+  try{localStorage.setItem('np_key',k)}catch(e){}
+  keyIn.value='';setup.style.display='none';setStatus('Key save ho gayi. Ab sawal poochhiye!');
+};
+
+function speak(text){
+  try{
+    speechSynthesis.cancel();
+    var u=new SpeechSynthesisUtterance(text.replace(/[*_`#>~|]/g,'').replace(/\s+/g,' ').trim());
+    var hi=/[\u0900-\u097F]/.test(text);
+    u.lang=hi?'hi-IN':'en-IN';
+    var v=speechSynthesis.getVoices().filter(function(x){return x.lang&&x.lang.replace('_','-').toLowerCase().indexOf(hi?'hi':'en')===0})[0];
+    if(v)u.voice=v;
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+try{speechSynthesis.getVoices()}catch(e){}
+
+async function ask(text,byVoice){
+  text=(text||'').trim();if(pendingImg&&!text)text='Is photo me jo sawal ya galti hai, use dhyan se padhkar batao aur hal karo.';if(!text||busy)return;
+  var key=getKey();
+  if(!key){showSetup();setStatus('Pehle API key daalein.');return}
+  try{speechSynthesis.cancel()}catch(e){}
+  busy=true;send.disabled=true;q.value='';
+  add('u',(pendingImg?'📷 ':'')+text);
+  var m=add('a','…');setStatus('Soch raha hoon…');
+  try{
+    var img=pendingImg;pendingImg=null;var uc=img?[{type:'image',source:{type:'base64',media_type:'image/jpeg',data:img}},{type:'text',text:text}]:text;var msgs=hist.concat([{role:'user',content:uc}]);
+    var r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:MODEL,max_tokens:1000,system:SYS,messages:msgs})
+    });
+    var d=await r.json();
+    if(!r.ok)throw new Error((d&&d.error&&d.error.message)||('Error '+r.status));
+    var ans=(d.content||[]).map(function(c){return c.text||''}).join('').trim()||'Jawab nahi mila.';
+    m.textContent=ans;
+    hist.push({role:'user',content:(img?'[photo bheji] ':'')+text},{role:'assistant',content:ans});
+    if(hist.length>12)hist=hist.slice(-12);
+    var b=document.createElement('button');b.textContent='🔊 Sunao';b.onclick=function(){speak(ans)};m.appendChild(b);
+    if(byVoice||auto.checked)speak(ans);
+  }catch(err){
+    var msg=String(err&&err.message||err);
+    m.textContent='Kuch gadbad ho gayi: '+msg+(/api.?key|authentication|401/i.test(msg)?'\nAPI key galat ho sakti hai — ⚙️ dabakar dobara daalein.':'');
+  }finally{busy=false;send.disabled=false;setStatus('');chat.scrollTop=chat.scrollHeight}
+}
+
+mic.onclick=function(){
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){setStatus('Is browser me mic support nahi hai. Chrome use karein ya likhkar poochhein.');return}
+  try{speechSynthesis.cancel();var z=new SpeechSynthesisUtterance(' ');z.volume=0;speechSynthesis.speak(z)}catch(e){}
+  if(rec){try{rec.stop()}catch(e){}return}
+  rec=new SR();rec.lang='hi-IN';rec.interimResults=true;rec.continuous=false;
+  var txt='';
+  rec.onstart=function(){mic.classList.add('on');setStatus('Sun raha hoon… boliye')};
+  rec.onresult=function(e){txt='';for(var i=0;i<e.results.length;i++)txt+=e.results[i][0].transcript;q.value=txt};
+  rec.onerror=function(e){setStatus(e.error==='not-allowed'||e.error==='service-not-allowed'?'Mic ki permission nahi mili.':'Awaaz sun nahi paya, dobara koshish karein.')};
+  rec.onend=function(){mic.classList.remove('on');var t=txt.trim();rec=null;if(t){setStatus('');ask(t,true)}};
+  try{rec.start()}catch(e){rec=null}
+};
+var pendingImg=null;
+$('cam').onclick=function(){$('file').click()};
+$('file').onchange=function(){
+  var f=this.files&&this.files[0];if(!f)return;
+  var rd=new FileReader();
+  rd.onload=function(){var im=new Image();im.onload=function(){
+    var s=Math.min(1,1280/Math.max(im.width,im.height));
+    var c=document.createElement('canvas');c.width=Math.round(im.width*s);c.height=Math.round(im.height*s);
+    c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+    pendingImg=c.toDataURL('image/jpeg',0.85).split(',')[1];
+    setStatus('📷 Photo taiyar hai. Sawal likho ya seedha ➤ dabao.');
+  };im.src=rd.result};
+  rd.readAsDataURL(f);this.value='';
+};
+send.onclick=function(){ask(q.value,false)};
+q.addEventListener('keydown',function(e){if(e.key==='Enter')ask(q.value,false)});
+})();
+</script>
+</body>
+</html>
